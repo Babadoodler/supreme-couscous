@@ -1,0 +1,15 @@
+// Cloudflare Workers (static assets) deployment config.
+// Naming the existing Worker here lets `wrangler deploy` update it instead
+// of refusing to overwrite an unclaimed name.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "supreme-couscous",
+  "compatibility_date": "2026-07-08",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
