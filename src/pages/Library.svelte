@@ -15,12 +15,23 @@
   import { slugifyFilename } from '../lib/geo/format';
   import { downloadFile, shareOrDownloadFile } from '../lib/ui/download';
   import { libraryVersion, requestImport } from '../lib/ui/importState.svelte';
+  import { installState, promptInstall } from '../lib/ui/installPrompt.svelte';
+  import { getSetting, setSetting } from '../lib/store/settings';
   import RouteCard from '../components/library/RouteCard.svelte';
 
   let routes = $state<Route[]>([]);
   let loaded = $state(false);
   let fileInput: HTMLInputElement | undefined = $state();
   let headerMenuOpen = $state(false);
+  let returningUser = $state(false); // install hint only from the 2nd session (§8)
+
+  $effect(() => {
+    void (async () => {
+      const sessions = ((await getSetting<number>('sessionCount')) ?? 0) + 1;
+      await setSetting('sessionCount', sessions);
+      returningUser = sessions >= 2;
+    })();
+  });
 
   async function refresh() {
     routes = await listRoutes();
@@ -94,6 +105,9 @@
   <header>
     <h1>WayPoint</h1>
     <div class="header-actions">
+      {#if installState.available && returningUser}
+        <button class="install-chip" onclick={() => void promptInstall()}>Install</button>
+      {/if}
       <button class="import-btn" onclick={() => fileInput?.click()}>Import GPX</button>
       {#if routes.length > 0}
         <div class="menu-anchor">
@@ -216,6 +230,15 @@
     color: var(--color-primary);
     font-weight: 600;
     padding: 0 10px;
+  }
+
+  .install-chip {
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    border-radius: 999px;
+    padding: 0 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
   }
 
   .header-menu-btn {
