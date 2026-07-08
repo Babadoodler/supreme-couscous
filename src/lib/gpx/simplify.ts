@@ -49,24 +49,44 @@ export function simplifyTolerance<T extends LatLon>(points: T[], toleranceMeters
 }
 
 /**
- * Simplify down to (at most) a target point count by binary-searching the
- * tolerance. Drives the import slider UI ("~50 points" default).
+ * Simplify to exactly the target point count using Douglas–Peucker
+ * importance ranking: each point gets the tolerance at which DP would
+ * include it, then the top-N survive. Unlike binary-searching a tolerance,
+ * this hits the requested count even when DP counts jump discontinuously
+ * (e.g. a near-straight noisy track). Drives the import slider UI.
  */
 export function simplifyToCount<T extends LatLon>(points: T[], targetCount: number): T[] {
   if (targetCount >= points.length) return [...points];
   if (targetCount < 2) targetCount = 2;
-  let lo = 0.01; // metres
-  let hi = 100_000;
-  let best = simplifyTolerance(points, lo);
-  for (let iter = 0; iter < 40 && best.length !== targetCount; iter++) {
-    const mid = (lo + hi) / 2;
-    const attempt = simplifyTolerance(points, mid);
-    if (attempt.length > targetCount) {
-      lo = mid;
-    } else {
-      hi = mid;
-      best = attempt;
+  const n = points.length;
+  const importance = new Array<number>(n).fill(0);
+  importance[0] = importance[n - 1] = Infinity;
+
+  // Iterative DP recursion assigning each interior point its inclusion
+  // tolerance, clamped so children never outrank their parent split.
+  const stack: Array<[number, number, number]> = [[0, n - 1, Infinity]];
+  while (stack.length > 0) {
+    const [start, end, parentImp] = stack.pop()!;
+    if (end - start < 2) continue;
+    let maxDist = -1;
+    let maxIdx = -1;
+    for (let i = start + 1; i < end; i++) {
+      const d = perpendicularDistanceMeters(points[i]!, points[start]!, points[end]!);
+      if (d > maxDist) {
+        maxDist = d;
+        maxIdx = i;
+      }
     }
+    const imp = Math.min(maxDist, parentImp);
+    importance[maxIdx] = imp;
+    stack.push([start, maxIdx, imp], [maxIdx, end, imp]);
   }
-  return best;
+
+  const keepIdx = importance
+    .map((imp, i) => [imp, i] as const)
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, targetCount)
+    .map(([, i]) => i)
+    .sort((a, b) => a - b);
+  return keepIdx.map((i) => points[i]!);
 }

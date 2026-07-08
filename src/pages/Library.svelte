@@ -13,11 +13,14 @@
   import { showSnack } from '../lib/ui/snackbar.svelte';
   import { serializeGpx } from '../lib/gpx/serialize';
   import { slugifyFilename } from '../lib/geo/format';
-  import { shareOrDownloadFile } from '../lib/ui/download';
+  import { downloadFile, shareOrDownloadFile } from '../lib/ui/download';
+  import { libraryVersion, requestImport } from '../lib/ui/importState.svelte';
   import RouteCard from '../components/library/RouteCard.svelte';
 
   let routes = $state<Route[]>([]);
   let loaded = $state(false);
+  let fileInput: HTMLInputElement | undefined = $state();
+  let headerMenuOpen = $state(false);
 
   async function refresh() {
     routes = await listRoutes();
@@ -25,8 +28,30 @@
   }
 
   $effect(() => {
+    void libraryVersion.n; // re-query after imports
     void refresh();
   });
+
+  async function onPickFile(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-picking the same file
+    if (!file) return;
+    requestImport(file.name, await file.text());
+  }
+
+  /** Panic export (DESIGN.md §9): one JSON backup of the whole library. */
+  function backupAll() {
+    const backup = {
+      app: 'waypoint',
+      backupVersion: 1,
+      exportedAt: new Date().toISOString(),
+      routes
+    };
+    const date = new Date().toISOString().slice(0, 10);
+    downloadFile(`waypoint-backup-${date}.json`, JSON.stringify(backup, null, 2), 'application/json');
+    showSnack('Backup downloaded');
+  }
 
   async function onNewRoute() {
     const route = createRoute();
@@ -63,15 +88,50 @@
   }
 </script>
 
+<svelte:window onclick={() => (headerMenuOpen = false)} />
+
 <div class="library">
   <header>
     <h1>WayPoint</h1>
+    <div class="header-actions">
+      <button class="import-btn" onclick={() => fileInput?.click()}>Import GPX</button>
+      {#if routes.length > 0}
+        <div class="menu-anchor">
+          <button
+            class="header-menu-btn"
+            aria-label="Library actions"
+            aria-expanded={headerMenuOpen}
+            onclick={(e) => {
+              e.stopPropagation();
+              headerMenuOpen = !headerMenuOpen;
+            }}
+          >
+            ⋮
+          </button>
+          {#if headerMenuOpen}
+            <div class="menu" role="menu">
+              <button role="menuitem" onclick={() => { headerMenuOpen = false; backupAll(); }}>
+                Back up all routes
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
   </header>
+  <input
+    type="file"
+    accept=".gpx,application/gpx+xml,text/xml,application/xml"
+    hidden
+    bind:this={fileInput}
+    onchange={onPickFile}
+  />
 
   {#if loaded && routes.length === 0}
     <div class="empty">
       <p>Build GPX routes from map taps, place search, or pasted coordinates — all mixed together.</p>
       <button class="primary" onclick={onNewRoute}>＋ New route</button>
+      <button class="secondary" onclick={() => fileInput?.click()}>Import a GPX file</button>
     </div>
   {:else}
     <ul class="cards">
@@ -138,6 +198,57 @@
     border-radius: 999px;
     padding: 0 24px;
     font-weight: 600;
+  }
+
+  .secondary {
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0 24px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .import-btn {
+    color: var(--color-primary);
+    font-weight: 600;
+    padding: 0 10px;
+  }
+
+  .header-menu-btn {
+    color: var(--color-text-dim);
+    font-size: 1.2rem;
+  }
+
+  .menu-anchor {
+    position: relative;
+  }
+
+  .menu {
+    position: absolute;
+    top: 44px;
+    right: 0;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    min-width: 180px;
+    z-index: 60;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .menu button {
+    text-align: left;
+    padding: 12px 16px;
+  }
+
+  .menu button:hover {
+    background: var(--color-surface);
   }
 
   .fab {

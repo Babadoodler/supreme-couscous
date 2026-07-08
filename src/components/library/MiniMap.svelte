@@ -1,9 +1,9 @@
 <script lang="ts">
   // Static SVG thumbnail of a route — rendered from coordinates only, no
   // tile fetch, so library cards work fully offline (DESIGN.md §6.1).
-  import type { Stop } from '../../lib/types';
+  import type { LatLon } from '../../lib/types';
 
-  let { stops, loop = false }: { stops: Stop[]; loop?: boolean } = $props();
+  let { stops, loop = false }: { stops: LatLon[]; loop?: boolean } = $props();
 
   const W = 96;
   const H = 64;

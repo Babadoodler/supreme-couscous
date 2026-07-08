@@ -53,12 +53,36 @@ describe('simplifyTolerance', () => {
 });
 
 describe('simplifyToCount', () => {
-  it('reduces to (approximately, ≤) the target count', () => {
+  it('reduces to exactly the target count', () => {
     const pts = noisyTrack(2000);
+    expect(simplifyToCount(pts, 50)).toHaveLength(50);
+  });
+
+  it('hits the target even on a near-straight noisy track (discontinuous DP counts)', () => {
+    // Straight diagonal with ~10 m jitter: tolerance-based search collapses
+    // this to 2-3 points; importance ranking must still return 50.
+    const pts = [];
+    for (let i = 0; i < 600; i++) {
+      const t = i / 599;
+      pts.push({
+        lat: -37.8 - 0.02 * t + 0.0001 * Math.sin(i * 0.7),
+        lon: 144.95 + 0.03 * t + 0.0001 * Math.cos(i * 0.9)
+      });
+    }
     const out = simplifyToCount(pts, 50);
-    expect(out.length).toBeLessThanOrEqual(50);
-    // DP counts step discontinuously with tolerance; only the ceiling is guaranteed.
-    expect(out.length).toBeGreaterThanOrEqual(3);
+    expect(out).toHaveLength(50);
+    expect(out[0]).toEqual(pts[0]);
+    expect(out[49]).toEqual(pts[599]);
+  });
+
+  it('keeps endpoints and preserves order', () => {
+    const pts = noisyTrack(500);
+    const out = simplifyToCount(pts, 20);
+    expect(out[0]).toEqual(pts[0]);
+    expect(out[out.length - 1]).toEqual(pts[pts.length - 1]);
+    for (let i = 1; i < out.length; i++) {
+      expect(pts.indexOf(out[i]!)).toBeGreaterThan(pts.indexOf(out[i - 1]!));
+    }
   });
 
   it('returns the input untouched when already small enough', () => {
@@ -68,6 +92,6 @@ describe('simplifyToCount', () => {
 
   it('never goes below 2 points', () => {
     const pts = noisyTrack(100);
-    expect(simplifyToCount(pts, 0).length).toBeGreaterThanOrEqual(2);
+    expect(simplifyToCount(pts, 0)).toHaveLength(2);
   });
 });
