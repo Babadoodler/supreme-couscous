@@ -1,23 +1,34 @@
 <script lang="ts">
   import { nav } from './lib/ui/nav.svelte';
-  import { clearImport, importState, requestImport } from './lib/ui/importState.svelte';
+  import {
+    clearImport,
+    clearScreenshotImport,
+    importState,
+    requestImport,
+    requestScreenshotImport
+  } from './lib/ui/importState.svelte';
   import Library from './pages/Library.svelte';
   import Overview from './pages/Overview.svelte';
   import Snackbar from './components/ui/Snackbar.svelte';
   import ImportSheet from './components/library/ImportSheet.svelte';
+  import ScreenshotImportSheet from './components/library/ScreenshotImportSheet.svelte';
   import { showSnack } from './lib/ui/snackbar.svelte';
 
   // Editor is lazy-loaded: it pulls in MapLibre (~290 KB gz), which must stay
   // out of the initial bundle to hold the ≤200 KB budget (DESIGN.md §13).
   const editorModule = import('./pages/Editor.svelte');
 
-  // Desktop drag-drop import (DESIGN.md §10).
+  // Desktop drag-drop import (DESIGN.md §10): GPX files or route screenshots.
   async function onDrop(e: DragEvent) {
     e.preventDefault();
     const file = e.dataTransfer?.files?.[0];
     if (!file) return;
+    if (file.type.startsWith('image/')) {
+      requestScreenshotImport(file);
+      return;
+    }
     if (!/\.gpx$/i.test(file.name) && !file.type.includes('gpx') && !file.type.includes('xml')) {
-      showSnack("That doesn't look like a GPX file.");
+      showSnack("That doesn't look like a GPX file or screenshot.");
       return;
     }
     requestImport(file.name, await file.text());
@@ -48,6 +59,10 @@
     text={importState.pending.text}
     onclose={clearImport}
   />
+{/if}
+
+{#if importState.pendingScreenshot}
+  <ScreenshotImportSheet file={importState.pendingScreenshot} onclose={clearScreenshotImport} />
 {/if}
 
 <Snackbar />
