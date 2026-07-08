@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import type { LatLon, Route, Stop, StopSource } from '../lib/types';
   import { createStop, getRoute, restoreRoute } from '../lib/store/routes';
-  import { gotoLibrary } from '../lib/ui/nav.svelte';
+  import { gotoLibrary, gotoOverview } from '../lib/ui/nav.svelte';
   import { showSnack } from '../lib/ui/snackbar.svelte';
   import { routeDistanceMeters } from '../lib/geo/distance';
   import { formatDistance, formatLatLon } from '../lib/geo/format';
@@ -361,6 +361,15 @@
               }}
             >
               Route description
+            </button>
+            <button
+              role="menuitem"
+              onclick={() => {
+                routeMenuOpen = false;
+                gotoOverview(routeId);
+              }}
+            >
+              Route overview
             </button>
           </div>
         {/if}

@@ -6,6 +6,7 @@
   let {
     route,
     onopen,
+    onoverview,
     onrename,
     onduplicate,
     onexport,
@@ -13,6 +14,7 @@
   }: {
     route: Route;
     onopen: () => void;
+    onoverview: () => void;
     onrename: (name: string) => void;
     onduplicate: () => void;
     onexport: () => void;
@@ -85,6 +87,7 @@
     </button>
     {#if menuOpen}
       <div class="menu" role="menu">
+        <button role="menuitem" onclick={() => { menuOpen = false; onoverview(); }}>Overview</button>
         <button role="menuitem" onclick={startRename}>Rename</button>
         <button role="menuitem" onclick={() => { menuOpen = false; onduplicate(); }}>Duplicate</button>
         <button role="menuitem" onclick={() => { menuOpen = false; onexport(); }}>Export GPX</button>

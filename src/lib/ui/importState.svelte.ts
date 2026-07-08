@@ -7,7 +7,10 @@ export interface ImportRequest {
   text: string;
 }
 
-export const importState = $state<{ pending: ImportRequest | null }>({ pending: null });
+export const importState = $state<{
+  pending: ImportRequest | null;
+  pendingScreenshot: File | null;
+}>({ pending: null, pendingScreenshot: null });
 
 /** Bumped after a successful import so the library re-queries IndexedDB. */
 export const libraryVersion = $state({ n: 0 });
@@ -18,6 +21,14 @@ export function requestImport(fileName: string, text: string): void {
 
 export function clearImport(): void {
   importState.pending = null;
+}
+
+export function requestScreenshotImport(file: File): void {
+  importState.pendingScreenshot = file;
+}
+
+export function clearScreenshotImport(): void {
+  importState.pendingScreenshot = null;
 }
 
 export function notifyLibraryChanged(): void {

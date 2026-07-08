@@ -23,7 +23,7 @@ Svelte + Vite + TypeScript · MapLibre GL JS + OpenFreeMap tiles · Photon geoco
 
 ## Architecture rules
 
-- `src/lib/gpx/` and `src/lib/geo/` are pure TypeScript: **zero DOM or framework imports.** They are the correctness core and must stay fully unit-tested.
+- `src/lib/gpx/`, `src/lib/geo/`, and `src/lib/ocr/pogoCard.ts` are pure TypeScript: **zero DOM or framework imports.** They are the correctness core and must stay fully unit-tested (the OCR card parser against real degraded OCR fixtures).
 - `Route.stops` array order is the single source of truth for stop order — never add a parallel index field.
 - Geocoders only via the `Geocoder` adapter interface (§12.3); UI code never calls Photon/Nominatim directly.
 - Persisted data carries `schemaVersion`; any schema change adds a migration step.

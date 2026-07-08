@@ -9,12 +9,12 @@
     saveRoute
   } from '../lib/store/routes';
   import { ensurePersistentStorage } from '../lib/store/settings';
-  import { gotoEditor } from '../lib/ui/nav.svelte';
+  import { gotoEditor, gotoOverview } from '../lib/ui/nav.svelte';
   import { showSnack } from '../lib/ui/snackbar.svelte';
   import { serializeGpx } from '../lib/gpx/serialize';
   import { slugifyFilename } from '../lib/geo/format';
   import { downloadFile, shareOrDownloadFile } from '../lib/ui/download';
-  import { libraryVersion, requestImport } from '../lib/ui/importState.svelte';
+  import { libraryVersion, requestImport, requestScreenshotImport } from '../lib/ui/importState.svelte';
   import { installState, promptInstall } from '../lib/ui/installPrompt.svelte';
   import { getSetting, setSetting } from '../lib/store/settings';
   import RouteCard from '../components/library/RouteCard.svelte';
@@ -22,6 +22,7 @@
   let routes = $state<Route[]>([]);
   let loaded = $state(false);
   let fileInput: HTMLInputElement | undefined = $state();
+  let imageInput: HTMLInputElement | undefined = $state();
   let headerMenuOpen = $state(false);
   let returningUser = $state(false); // install hint only from the 2nd session (§8)
 
@@ -49,6 +50,13 @@
     input.value = ''; // allow re-picking the same file
     if (!file) return;
     requestImport(file.name, await file.text());
+  }
+
+  function onPickImage(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) requestScreenshotImport(file);
   }
 
   /** Panic export (DESIGN.md §9): one JSON backup of the whole library. */
@@ -109,28 +117,31 @@
         <button class="install-chip" onclick={() => void promptInstall()}>Install</button>
       {/if}
       <button class="import-btn" onclick={() => fileInput?.click()}>Import GPX</button>
-      {#if routes.length > 0}
-        <div class="menu-anchor">
-          <button
-            class="header-menu-btn"
-            aria-label="Library actions"
-            aria-expanded={headerMenuOpen}
-            onclick={(e) => {
-              e.stopPropagation();
-              headerMenuOpen = !headerMenuOpen;
-            }}
-          >
-            ⋮
-          </button>
-          {#if headerMenuOpen}
-            <div class="menu" role="menu">
+      <div class="menu-anchor">
+        <button
+          class="header-menu-btn"
+          aria-label="Library actions"
+          aria-expanded={headerMenuOpen}
+          onclick={(e) => {
+            e.stopPropagation();
+            headerMenuOpen = !headerMenuOpen;
+          }}
+        >
+          ⋮
+        </button>
+        {#if headerMenuOpen}
+          <div class="menu" role="menu">
+            <button role="menuitem" onclick={() => { headerMenuOpen = false; imageInput?.click(); }}>
+              From Pokémon GO screenshot
+            </button>
+            {#if routes.length > 0}
               <button role="menuitem" onclick={() => { headerMenuOpen = false; backupAll(); }}>
                 Back up all routes
               </button>
-            </div>
-          {/if}
-        </div>
-      {/if}
+            {/if}
+          </div>
+        {/if}
+      </div>
     </div>
   </header>
   <input
@@ -140,6 +151,7 @@
     bind:this={fileInput}
     onchange={onPickFile}
   />
+  <input type="file" accept="image/*" hidden bind:this={imageInput} onchange={onPickImage} />
 
   {#if loaded && routes.length === 0}
     <div class="empty">
@@ -154,6 +166,7 @@
           <RouteCard
             {route}
             onopen={() => gotoEditor(route.id)}
+            onoverview={() => gotoOverview(route.id)}
             onrename={(name) => onRename(route, name)}
             onduplicate={() => onDuplicate(route)}
             onexport={() => onExport(route)}

@@ -8,7 +8,9 @@
   let { route, onclose }: { route: Route; onclose: () => void } = $props();
 
   let variant = $state<GpxVariant>('full');
+  let showPreview = $state(false);
   let filename = $derived(slugifyFilename(route.name));
+  let gpxText = $derived(serializeGpx(route, { variant }));
 
   const variantLabels: Record<GpxVariant, string> = {
     full: 'Waypoints + route (best compatibility)',
@@ -17,15 +19,24 @@
   };
 
   async function share() {
-    await shareOrDownloadFile(filename, serializeGpx(route, { variant }));
+    await shareOrDownloadFile(filename, gpxText);
     onclose();
     showSnack(`Exported ${filename}`);
   }
 
   function download() {
-    downloadFile(filename, serializeGpx(route, { variant }));
+    downloadFile(filename, gpxText);
     onclose();
     showSnack(`Exported ${filename}`);
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(gpxText);
+      showSnack('GPX copied to clipboard');
+    } catch {
+      showSnack("Couldn't copy — your browser blocked clipboard access.");
+    }
   }
 </script>
 
@@ -55,7 +66,15 @@
     </div>
   </details>
 
+  <button class="preview-toggle" onclick={() => (showPreview = !showPreview)} aria-expanded={showPreview}>
+    {showPreview ? 'Hide GPX' : 'View GPX'}
+  </button>
+  {#if showPreview}
+    <pre class="preview">{gpxText}</pre>
+  {/if}
+
   <div class="actions">
+    <button class="secondary" onclick={copy}>Copy</button>
     <button class="secondary" onclick={download}>Download</button>
     <button class="primary" onclick={share}>Share</button>
   </div>
@@ -81,6 +100,8 @@
     box-shadow: var(--shadow-sheet);
     max-width: 640px;
     margin: 0 auto;
+    max-height: 85dvh;
+    overflow-y: auto;
   }
 
   h2 {
@@ -124,6 +145,30 @@
     align-items: center;
     gap: 10px;
     min-height: var(--touch-target);
+  }
+
+  .preview-toggle {
+    text-align: left;
+    color: var(--color-primary);
+    font-weight: 600;
+    padding: 4px 0;
+    min-height: 36px;
+  }
+
+  .preview {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    max-height: 32dvh;
+    overflow: auto;
+    white-space: pre;
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   .actions {

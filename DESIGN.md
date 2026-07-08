@@ -231,6 +231,28 @@ Session-scoped, per-route, min 50 steps. Every mutation (add/delete/move/reorder
 - Keyboard "next" action in the add bar adds the top search result (fast entry of a known list of places).
 - All destructive actions are undoable rather than confirm-dialog-guarded, except "Delete route" from the library which gets snackbar-undo too.
 - Share-target: exported files use the Web Share API where available so "Export" can go straight into another app on the phone; file download is the fallback.
+- The export sheet also offers **View GPX** (scrollable inline preview of the exact output, reflecting the chosen variant) and **Copy** (raw GPX text to the clipboard) — some destinations take pasted text more readily than a file.
+
+### 7.8 Route overview & shareable exports
+
+Each route gets a read-only **Overview** page (from the editor's route menu and the library card menu): a large offline SVG minimap, a design-first stats block (stop count, straight-line distance, an *estimated* walking time at a fixed 12 min/km pace — display-only, clearly labelled an estimate, never written into the GPX), start/end stop names, loop badge, description, and the numbered stop list with coordinates. Below it, the raw GPX text (with copy), which doubles as page 2 of the print layout.
+
+Exports from the overview:
+- **Copy as Markdown** — the overview as portable text with a coordinates table.
+- **Save image (PNG)** — a canvas-rendered share card (map polyline + stats) via the share sheet or download.
+- **Print / Save as PDF** — a print stylesheet renders page 1 = overview, page 2 = raw GPX text; no PDF library needed.
+
+### 7.9 Import from Pokémon GO screenshot
+
+A dedicated import path for the in-game route-info card (screenshot or pasted image). All processing is on-device (tesseract.js in a lazy-loaded worker; OCR code assets bundled or SW-cached — the image never leaves the phone).
+
+Pipeline: OCR → **pure text parser** (`lib/ocr/pogoCard.ts`, unit-tested against real card fixtures) extracting route name, distance/duration, locality line, About text, and the `Start point:` / `End point:` names → preview sheet with editable fields → create route.
+
+Coordinate resolution is best-effort by design — the card contains *names, not coordinates*, and Niantic POIs are frequently absent from OSM:
+1. Geocode the locality line to anchor the area.
+2. Geocode each start/end name biased to that locality; a confident hit fills real coordinates.
+3. A miss still creates the stop, placed at the locality anchor, named from the card, with a note flagging it as approximate — the existing Edit → Adjust-on-map crosshair is the correction path. The UI must say what happened ("Couldn't pin 'X' exactly — placed near The Ponds; adjust on map"), never pretend precision.
+4. Fully offline: parse still works; route is created with metadata and any stops the user places manually.
 
 ## 8. PWA Requirements
 
@@ -332,6 +354,8 @@ Each layer ships a usable increment and is a natural PR boundary.
 - **Layer 5 — Management polish:** drag reorder with live map, loop toggle + dashed segment, reverse route, stop edit sheet with crosshair adjust, undo/redo history, select mode.
 - **Layer 6 — Import & interop:** import pipeline + preview + simplification, file handlers, share target, Web Share export, backup-all. **Unlocks U3.**
 - **Layer 7 — Fit & finish:** dark map style, reduced-motion, a11y audit, empty states, install hint, storage persistence prompt, compatibility pass, perf budget check (≤200 KB gz initial JS).
+- **Layer 8 — Route overview & exports (§7.8):** overview page, Markdown copy, PNG share card, print/PDF layout.
+- **Layer 9 — Pokémon GO screenshot import (§7.9):** OCR wiring, card parser + fixtures, geocode-with-fallback flow.
 
 ## 15. Acceptance Criteria (definition of "done" for v1)
 

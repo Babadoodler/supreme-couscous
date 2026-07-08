@@ -64,6 +64,54 @@ test('U2: build a loop from mixed coordinate formats and export it', async ({ pa
   expect(gpx).toContain('(return)</name>');
 });
 
+test('export sheet: view GPX inline and copy to clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await newRoute(page);
+  await addCoords(page, '-37.8153, 144.9663');
+  await addCoords(page, '-37.8180, 144.9683');
+
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('button', { name: 'View GPX' }).click();
+  const preview = page.locator('pre.preview');
+  await expect(preview).toContainText('creator="WayPoint"');
+  await expect(preview).toContainText('lat="-37.815300"');
+  await page.getByRole('button', { name: 'Hide GPX' }).click();
+  await expect(preview).toBeHidden();
+
+  await page.getByRole('button', { name: 'Copy', exact: true }).click();
+  await expect(page.getByText('GPX copied to clipboard')).toBeVisible();
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clip).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+  expect(clip.match(/<wpt /g)).toHaveLength(2);
+});
+
+test('route overview: stats, markdown copy, PNG export, embedded GPX', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await newRoute(page);
+  await addCoords(page, '-37.8153, 144.9663');
+  await addCoords(page, '-37.8180, 144.9683');
+  await page.getByRole('button', { name: 'Untitled route' }).click();
+  await page.locator('input.route-name-input').fill('Sheet Test');
+  await page.keyboard.press('Enter');
+
+  await page.getByRole('button', { name: 'Route actions' }).click();
+  await page.getByRole('menuitem', { name: 'Route overview' }).click();
+  await expect(page.getByRole('heading', { name: 'Sheet Test' })).toBeVisible();
+  await expect(page.getByText(/~\d+ min/).first()).toBeVisible();
+  await expect(page.locator('.map-wrap svg polyline')).toBeVisible();
+  await expect(page.locator('pre.gpx')).toContainText('creator="WayPoint"');
+
+  await page.getByRole('button', { name: 'Copy Markdown' }).click();
+  const md = await page.evaluate(() => navigator.clipboard.readText());
+  expect(md).toContain('# Sheet Test');
+  expect(md).toContain('| # | Stop | Latitude | Longitude | Note |');
+
+  const dlPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save image' }).click();
+  const dl = await dlPromise;
+  expect(dl.suggestedFilename()).toBe('sheet-test.png');
+});
+
 test('U1: mix place search with pasted coordinates', async ({ page }) => {
   await mockPhoton(page);
   const addInput = await newRoute(page);
@@ -112,7 +160,7 @@ test('U3: import a multi-route file, then a broken one', async ({ page }) => {
       </rte>
       <rte><name>Route Two</name><rtept lat="-37.7" lon="144.9"/><rtept lat="-37.71" lon="144.91"/></rte>
     </gpx>`;
-  await page.locator('input[type=file]').setInputFiles({
+  await page.locator('input[accept*="gpx"]').setInputFiles({
     name: 'melbourne.gpx',
     mimeType: 'application/gpx+xml',
     buffer: Buffer.from(multi)
@@ -126,7 +174,7 @@ test('U3: import a multi-route file, then a broken one', async ({ page }) => {
   expect(norm(await page.locator('[data-stop-row] .name').first().textContent())).toBe('P1');
 
   await page.getByRole('button', { name: 'Back to library' }).click();
-  await page.locator('input[type=file]').setInputFiles({
+  await page.locator('input[accept*="gpx"]').setInputFiles({
     name: 'broken.gpx',
     mimeType: 'application/gpx+xml',
     buffer: Buffer.from('not xml at all')
