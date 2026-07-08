@@ -160,7 +160,7 @@ test('U3: import a multi-route file, then a broken one', async ({ page }) => {
       </rte>
       <rte><name>Route Two</name><rtept lat="-37.7" lon="144.9"/><rtept lat="-37.71" lon="144.91"/></rte>
     </gpx>`;
-  await page.locator('input[type=file]').setInputFiles({
+  await page.locator('input[accept*="gpx"]').setInputFiles({
     name: 'melbourne.gpx',
     mimeType: 'application/gpx+xml',
     buffer: Buffer.from(multi)
@@ -174,7 +174,7 @@ test('U3: import a multi-route file, then a broken one', async ({ page }) => {
   expect(norm(await page.locator('[data-stop-row] .name').first().textContent())).toBe('P1');
 
   await page.getByRole('button', { name: 'Back to library' }).click();
-  await page.locator('input[type=file]').setInputFiles({
+  await page.locator('input[accept*="gpx"]').setInputFiles({
     name: 'broken.gpx',
     mimeType: 'application/gpx+xml',
     buffer: Buffer.from('not xml at all')
