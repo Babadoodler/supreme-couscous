@@ -32,16 +32,26 @@ npm run build     # production build → dist/
 npm run preview   # serve the production build
 ```
 
-## Deploying to Cloudflare Pages
+## Deploying to Cloudflare
 
-Create a Pages project connected to this repository with:
+The app is fully static (`dist/` after `npm run build`), uses hash-based
+routing (no redirect rules needed), and `public/_headers` ships the correct
+caching rules for the service worker and hashed assets.
+
+### Workers Builds (git-connected Worker)
+
+`wrangler.jsonc` is checked in and serves `dist/` as static assets under the
+Worker name `supreme-couscous`. Configure the project with:
+
+| Setting | Value |
+|---|---|
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+
+### Classic Pages project
 
 | Setting | Value |
 |---|---|
 | Build command | `npm run build` |
 | Build output directory | `dist` |
 | Node version | 22 (set `NODE_VERSION=22` env var) |
-
-Nothing else is required — the app is fully static, uses hash-based routing
-(no redirect rules needed), and `public/_headers` ships the correct caching
-rules for the service worker and hashed assets.
