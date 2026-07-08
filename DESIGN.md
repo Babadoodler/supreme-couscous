@@ -231,6 +231,7 @@ Session-scoped, per-route, min 50 steps. Every mutation (add/delete/move/reorder
 - Keyboard "next" action in the add bar adds the top search result (fast entry of a known list of places).
 - All destructive actions are undoable rather than confirm-dialog-guarded, except "Delete route" from the library which gets snackbar-undo too.
 - Share-target: exported files use the Web Share API where available so "Export" can go straight into another app on the phone; file download is the fallback.
+- The export sheet also offers **View GPX** (scrollable inline preview of the exact output, reflecting the chosen variant) and **Copy** (raw GPX text to the clipboard) — some destinations take pasted text more readily than a file.
 
 ## 8. PWA Requirements
 

@@ -64,6 +64,27 @@ test('U2: build a loop from mixed coordinate formats and export it', async ({ pa
   expect(gpx).toContain('(return)</name>');
 });
 
+test('export sheet: view GPX inline and copy to clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await newRoute(page);
+  await addCoords(page, '-37.8153, 144.9663');
+  await addCoords(page, '-37.8180, 144.9683');
+
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await page.getByRole('button', { name: 'View GPX' }).click();
+  const preview = page.locator('pre.preview');
+  await expect(preview).toContainText('creator="WayPoint"');
+  await expect(preview).toContainText('lat="-37.815300"');
+  await page.getByRole('button', { name: 'Hide GPX' }).click();
+  await expect(preview).toBeHidden();
+
+  await page.getByRole('button', { name: 'Copy', exact: true }).click();
+  await expect(page.getByText('GPX copied to clipboard')).toBeVisible();
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clip).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+  expect(clip.match(/<wpt /g)).toHaveLength(2);
+});
+
 test('U1: mix place search with pasted coordinates', async ({ page }) => {
   await mockPhoton(page);
   const addInput = await newRoute(page);
