@@ -12,7 +12,8 @@
     focusId = null,
     focusTick = 0,
     onmaptap,
-    onviewchange = undefined
+    onviewchange = undefined,
+    onlivecenter = undefined
   }: {
     stops: Stop[];
     loop?: boolean;
@@ -21,6 +22,8 @@
     focusTick?: number;
     onmaptap: (pos: LatLon) => void;
     onviewchange?: (center: LatLon) => void;
+    /** rAF-throttled centre updates during pans (crosshair readout). */
+    onlivecenter?: (center: LatLon) => void;
   } = $props();
 
   /** Current map centre (crosshair adjust + search bias). */
@@ -128,6 +131,15 @@
     map.on('moveend', () => {
       const c = map?.getCenter();
       if (c) onviewchange?.({ lat: c.lat, lon: c.lng });
+    });
+    let liveRaf = 0;
+    map.on('move', () => {
+      if (liveRaf || !onlivecenter) return;
+      liveRaf = requestAnimationFrame(() => {
+        liveRaf = 0;
+        const c = map?.getCenter();
+        if (c) onlivecenter?.({ lat: c.lat, lon: c.lng });
+      });
     });
     map.on('load', () => {
       map!.addSource('route-line', { type: 'geojson', data: lineData() });
