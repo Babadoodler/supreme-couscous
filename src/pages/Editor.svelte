@@ -7,6 +7,7 @@
   import { routeDistanceMeters } from '../lib/geo/distance';
   import { formatDistance, formatLatLon } from '../lib/geo/format';
   import { stopExportName } from '../lib/gpx/serialize';
+  import { geocoder } from '../lib/search/geocoder';
   import MapView from '../components/editor/MapView.svelte';
   import AddBar from '../components/editor/AddBar.svelte';
   import StopRow from '../components/editor/StopRow.svelte';
@@ -17,12 +18,38 @@
   let route = $state<Route | null>(null);
   let missing = $state(false);
   let pending = $state<LatLon | null>(null); // map-tap awaiting confirmation (§7.1.4)
+  let pendingName = $state(''); // async reverse-geocode suggestion for the confirm card
   let focusId = $state<string | null>(null);
   let focusTick = $state(0); // bumps so re-tapping the same row re-pulses
+  let mapCenter = $state<LatLon | null>(null); // search bias (§7.1.2)
+  let insertAfterIndex = $state<number | null>(null); // insert mode (§7.1)
 
   function focusStop(id: string) {
     focusId = id;
     focusTick++;
+  }
+
+  function setPending(pos: LatLon) {
+    pending = pos;
+    pendingName = '';
+    // Suggest a name while the confirm card is open; the add never waits on it.
+    void geocoder.reverse(pos.lat, pos.lon).then((r) => {
+      if (r && pending && pending.lat === pos.lat && pending.lon === pos.lon) {
+        pendingName = r.name;
+      }
+    });
+  }
+
+  /** Backfill a reverse-geocoded name onto a still-unnamed stop (§7.1.1). */
+  function suggestNameFor(stopId: string, pos: LatLon) {
+    void geocoder.reverse(pos.lat, pos.lon).then((r) => {
+      if (!r || !route) return;
+      const stop = route.stops.find((s) => s.id === stopId);
+      if (stop && !stop.name.trim()) {
+        stop.name = r.name;
+        scheduleSave();
+      }
+    });
   }
   let exporting = $state(false);
   let renamingRoute = $state(false);
@@ -58,10 +85,32 @@
   function addStop(pos: LatLon, source: StopSource, name = '') {
     if (!route) return;
     const stop = createStop(pos, source, name);
-    route.stops.push(stop);
+    let position: number;
+    if (insertAfterIndex !== null) {
+      position = Math.min(insertAfterIndex + 1, route.stops.length);
+      route.stops.splice(position, 0, stop);
+      insertAfterIndex = position; // consecutive adds keep chaining in place
+    } else {
+      route.stops.push(stop);
+      position = route.stops.length - 1;
+    }
     focusStop(stop.id);
     scheduleSave();
-    showSnack(`Added stop ${route.stops.length}`, { durationMs: 1800 });
+    showSnack(`Added stop ${position + 1}`, { durationMs: 1800 });
+    // GPS/clipboard stops arrive unnamed; offer a reverse-geocoded name.
+    if (!name && (source === 'gps' || source === 'clipboard')) {
+      suggestNameFor(stop.id, pos);
+    }
+  }
+
+  function moveStop(index: number, delta: -1 | 1) {
+    if (!route) return;
+    const target = index + delta;
+    if (target < 0 || target >= route.stops.length) return;
+    const [moved] = route.stops.splice(index, 1);
+    route.stops.splice(target, 0, moved!);
+    focusStop(moved!.id);
+    scheduleSave();
   }
 
   function renameStop(stop: Stop, name: string) {
@@ -154,17 +203,21 @@
         {pending}
         {focusId}
         {focusTick}
-        onmaptap={(pos) => (pending = pos)}
+        onmaptap={setPending}
+        onviewchange={(c) => (mapCenter = c)}
       />
       {#if pending}
         <div class="confirm-card">
+          {#if pendingName}
+            <span class="pending-name">{pendingName}</span>
+          {/if}
           <span>{formatLatLon(pending)}</span>
           <div class="confirm-actions">
             <button class="cancel" onclick={() => (pending = null)}>Cancel</button>
             <button
               class="confirm"
               onclick={() => {
-                addStop(pending!, 'map');
+                addStop(pending!, 'map', pendingName);
                 pending = null;
               }}
             >
@@ -177,7 +230,15 @@
 
     <section class="sheet" aria-label="Route stops">
       <div class="sheet-header">
-        <AddBar onadd={addStop} />
+        {#if insertAfterIndex !== null}
+          <div class="insert-banner">
+            <span>
+              Inserting after stop {Math.min(insertAfterIndex + 1, route.stops.length)}
+            </span>
+            <button onclick={() => (insertAfterIndex = null)} aria-label="Stop inserting">✕</button>
+          </div>
+        {/if}
+        <AddBar onadd={addStop} bias={mapCenter} />
         <p class="stats" aria-live="polite">
           {route.stops.length}
           {route.stops.length === 1 ? 'stop' : 'stops'}
@@ -194,9 +255,12 @@
             <StopRow
               {stop}
               index={i}
+              count={route.stops.length}
               onfocus={() => focusStop(stop.id)}
               onrename={(name) => renameStop(stop, name)}
               ondelete={() => deleteStop(i)}
+              oninsertafter={() => (insertAfterIndex = i)}
+              onmove={(delta) => moveStop(i, delta)}
             />
           {/each}
         {/if}
@@ -283,6 +347,26 @@
     position: relative;
     flex: 1 1 52%;
     min-height: 200px;
+  }
+
+  .pending-name {
+    font-weight: 600;
+  }
+
+  .insert-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-primary);
+    color: var(--color-primary-contrast);
+    border-radius: var(--radius);
+    padding: 2px 4px 2px 14px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+
+  .insert-banner button {
+    color: var(--color-primary-contrast);
   }
 
   .confirm-card {

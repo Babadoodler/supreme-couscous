@@ -6,19 +6,30 @@
   let {
     stop,
     index,
+    count,
     onfocus,
     onrename,
-    ondelete
+    ondelete,
+    oninsertafter,
+    onmove,
+    onedit = undefined,
+    ondragstart = undefined
   }: {
     stop: Stop;
     index: number;
+    count: number;
     onfocus: () => void;
     onrename: (name: string) => void;
     ondelete: () => void;
+    oninsertafter: () => void;
+    onmove: (delta: -1 | 1) => void;
+    onedit?: () => void;
+    ondragstart?: (e: PointerEvent) => void;
   } = $props();
 
   let renaming = $state(false);
   let draft = $state('');
+  let menuOpen = $state(false);
 
   function startRename() {
     draft = stop.name;
@@ -40,7 +51,18 @@
   };
 </script>
 
+<svelte:window onclick={() => (menuOpen = false)} />
+
 <div class="row">
+  {#if ondragstart}
+    <button
+      class="handle"
+      aria-label={`Drag to reorder stop ${index + 1}`}
+      onpointerdown={(e) => ondragstart?.(e)}
+    >
+      ≡
+    </button>
+  {/if}
   <button class="order" onclick={onfocus} aria-label={`Show stop ${index + 1} on map`}>
     {index + 1}
   </button>
@@ -65,18 +87,52 @@
     <p class="coords">
       <span class="src" title={`Added via ${stop.source}`}>{sourceIcons[stop.source]}</span>
       {formatLatLon(stop)}
+      {#if stop.note.trim()}<span class="note-dot" title={stop.note}>📝</span>{/if}
     </p>
   </div>
-  <button class="delete" onclick={ondelete} aria-label={`Delete stop ${index + 1}`}>✕</button>
+  <div class="menu-anchor">
+    <button
+      class="menu-btn"
+      aria-label={`Actions for stop ${index + 1}`}
+      aria-expanded={menuOpen}
+      onclick={(e) => {
+        e.stopPropagation();
+        menuOpen = !menuOpen;
+      }}
+    >
+      ⋮
+    </button>
+    {#if menuOpen}
+      <div class="menu" role="menu">
+        {#if onedit}
+          <button role="menuitem" onclick={() => { menuOpen = false; onedit(); }}>Edit stop</button>
+        {/if}
+        <button role="menuitem" onclick={() => { menuOpen = false; oninsertafter(); }}>Insert stop after</button>
+        <button role="menuitem" disabled={index === 0} onclick={() => { menuOpen = false; onmove(-1); }}>Move up</button>
+        <button role="menuitem" disabled={index === count - 1} onclick={() => { menuOpen = false; onmove(1); }}>Move down</button>
+        <button role="menuitem" class="danger" onclick={() => { menuOpen = false; ondelete(); }}>Delete</button>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
   .row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     padding: 4px 0;
     border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .handle {
+    color: var(--color-text-dim);
+    font-size: 1.1rem;
+    cursor: grab;
+    touch-action: none;
+    flex-shrink: 0;
+    min-width: 36px;
   }
 
   .order {
@@ -136,8 +192,50 @@
     margin-right: 4px;
   }
 
-  .delete {
-    color: var(--color-text-dim);
+  .note-dot {
+    margin-left: 6px;
+  }
+
+  .menu-anchor {
+    position: relative;
     flex-shrink: 0;
+  }
+
+  .menu-btn {
+    color: var(--color-text-dim);
+    font-size: 1.1rem;
+  }
+
+  .menu {
+    position: absolute;
+    top: 40px;
+    right: 0;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    z-index: 30;
+    overflow: hidden;
+  }
+
+  .menu button {
+    text-align: left;
+    padding: 11px 16px;
+  }
+
+  .menu button:disabled {
+    color: var(--color-text-dim);
+    opacity: 0.5;
+  }
+
+  .menu button:not(:disabled):hover {
+    background: var(--color-surface);
+  }
+
+  .danger {
+    color: var(--color-danger);
   }
 </style>

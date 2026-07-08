@@ -11,7 +11,8 @@
     pending = null,
     focusId = null,
     focusTick = 0,
-    onmaptap
+    onmaptap,
+    onviewchange = undefined
   }: {
     stops: Stop[];
     loop?: boolean;
@@ -19,7 +20,20 @@
     focusId?: string | null;
     focusTick?: number;
     onmaptap: (pos: LatLon) => void;
+    onviewchange?: (center: LatLon) => void;
   } = $props();
+
+  /** Current map centre (crosshair adjust + search bias). */
+  export function getCenter(): LatLon | null {
+    if (!map) return null;
+    const c = map.getCenter();
+    return { lat: c.lat, lon: c.lng };
+  }
+
+  /** Ease the view to a position (crosshair adjust entry). */
+  export function easeToPos(pos: LatLon, zoom = 16): void {
+    map?.easeTo({ center: [pos.lon, pos.lat], zoom: Math.max(map.getZoom(), zoom) });
+  }
 
   // Style URL is deliberately a single constant — swappable tiles (DESIGN.md §12.1).
   const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
@@ -110,6 +124,10 @@
     });
     map.on('click', (e) => {
       onmaptap({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+    });
+    map.on('moveend', () => {
+      const c = map?.getCenter();
+      if (c) onviewchange?.({ lat: c.lat, lon: c.lng });
     });
     map.on('load', () => {
       map!.addSource('route-line', { type: 'geojson', data: lineData() });

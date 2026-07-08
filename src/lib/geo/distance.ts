@@ -14,6 +14,24 @@ export function haversineMeters(a: LatLon, b: LatLon): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(s));
 }
 
+/** Initial great-circle bearing from a to b, degrees clockwise from north. */
+export function bearingDegrees(a: LatLon, b: LatLon): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLon = toRad(b.lon - a.lon);
+  const y = Math.sin(dLon) * Math.cos(toRad(b.lat));
+  const x =
+    Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
+    Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const;
+
+/** Eight-point compass label for a bearing. */
+export function compassPoint(bearing: number): string {
+  return COMPASS[Math.round(((bearing % 360) + 360) % 360 / 45) % 8]!;
+}
+
 /** Total straight-line length of a point sequence; closes the loop when asked. */
 export function routeDistanceMeters(points: LatLon[], loop = false): number {
   let total = 0;
