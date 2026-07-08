@@ -85,6 +85,33 @@ test('export sheet: view GPX inline and copy to clipboard', async ({ page, conte
   expect(clip.match(/<wpt /g)).toHaveLength(2);
 });
 
+test('route overview: stats, markdown copy, PNG export, embedded GPX', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await newRoute(page);
+  await addCoords(page, '-37.8153, 144.9663');
+  await addCoords(page, '-37.8180, 144.9683');
+  await page.getByRole('button', { name: 'Untitled route' }).click();
+  await page.locator('input.route-name-input').fill('Sheet Test');
+  await page.keyboard.press('Enter');
+
+  await page.getByRole('button', { name: 'Route actions' }).click();
+  await page.getByRole('menuitem', { name: 'Route overview' }).click();
+  await expect(page.getByRole('heading', { name: 'Sheet Test' })).toBeVisible();
+  await expect(page.getByText(/~\d+ min/).first()).toBeVisible();
+  await expect(page.locator('.map-wrap svg polyline')).toBeVisible();
+  await expect(page.locator('pre.gpx')).toContainText('creator="WayPoint"');
+
+  await page.getByRole('button', { name: 'Copy Markdown' }).click();
+  const md = await page.evaluate(() => navigator.clipboard.readText());
+  expect(md).toContain('# Sheet Test');
+  expect(md).toContain('| # | Stop | Latitude | Longitude | Note |');
+
+  const dlPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save image' }).click();
+  const dl = await dlPromise;
+  expect(dl.suggestedFilename()).toBe('sheet-test.png');
+});
+
 test('U1: mix place search with pasted coordinates', async ({ page }) => {
   await mockPhoton(page);
   const addInput = await newRoute(page);

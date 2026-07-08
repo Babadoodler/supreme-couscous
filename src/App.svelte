@@ -2,6 +2,7 @@
   import { nav } from './lib/ui/nav.svelte';
   import { clearImport, importState, requestImport } from './lib/ui/importState.svelte';
   import Library from './pages/Library.svelte';
+  import Overview from './pages/Overview.svelte';
   import Snackbar from './components/ui/Snackbar.svelte';
   import ImportSheet from './components/library/ImportSheet.svelte';
   import { showSnack } from './lib/ui/snackbar.svelte';
@@ -25,7 +26,11 @@
 
 <svelte:window ondragover={(e) => e.preventDefault()} ondrop={onDrop} />
 
-{#if nav.screen === 'editor' && nav.routeId}
+{#if nav.screen === 'overview' && nav.routeId}
+  {#key nav.routeId}
+    <Overview routeId={nav.routeId} />
+  {/key}
+{:else if nav.screen === 'editor' && nav.routeId}
   {#await editorModule then { default: Editor }}
     {#key nav.routeId}
       <Editor routeId={nav.routeId} />

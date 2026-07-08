@@ -9,7 +9,7 @@
     saveRoute
   } from '../lib/store/routes';
   import { ensurePersistentStorage } from '../lib/store/settings';
-  import { gotoEditor } from '../lib/ui/nav.svelte';
+  import { gotoEditor, gotoOverview } from '../lib/ui/nav.svelte';
   import { showSnack } from '../lib/ui/snackbar.svelte';
   import { serializeGpx } from '../lib/gpx/serialize';
   import { slugifyFilename } from '../lib/geo/format';
@@ -154,6 +154,7 @@
           <RouteCard
             {route}
             onopen={() => gotoEditor(route.id)}
+            onoverview={() => gotoOverview(route.id)}
             onrename={(name) => onRename(route, name)}
             onduplicate={() => onDuplicate(route)}
             onexport={() => onExport(route)}
