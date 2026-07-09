@@ -12,7 +12,7 @@
   import { buildMarkdown, estimateWalkMinutes } from '../lib/overview';
   import { renderShareCard } from '../lib/ui/shareCard';
   import { shareOrDownloadFile } from '../lib/ui/download';
-  import MiniMap from '../components/library/MiniMap.svelte';
+  import RouteStaticMap from '../components/library/RouteStaticMap.svelte';
 
   let { routeId }: { routeId: string } = $props();
 
@@ -82,7 +82,7 @@
       {/if}
 
       <div class="map-wrap">
-        <MiniMap stops={route.stops} loop={route.loop} width={360} height={240} pad={20} />
+        <RouteStaticMap stops={route.stops} loop={route.loop} width={360} height={240} />
       </div>
 
       <dl class="stats">

@@ -100,6 +100,16 @@ export default defineConfig({
             }
           },
           {
+            // Overview/share-card raster tiles (OSM)
+            urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'osm-raster-tiles',
+              expiration: { maxEntries: 500, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
             // Self-hosted OCR engine + language data: cached on first use,
             // then screenshot import works fully offline.
             urlPattern: /\/ocr\//,

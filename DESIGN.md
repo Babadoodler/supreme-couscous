@@ -235,7 +235,7 @@ Session-scoped, per-route, min 50 steps. Every mutation (add/delete/move/reorder
 
 ### 7.8 Route overview & shareable exports
 
-Each route gets a read-only **Overview** page (from the editor's route menu and the library card menu): a large offline SVG minimap, a design-first stats block (stop count, straight-line distance, an *estimated* walking time at a fixed 12 min/km pace — display-only, clearly labelled an estimate, never written into the GPX), start/end stop names, loop badge, description, and the numbered stop list with coordinates. Below it, the raw GPX text (with copy), which doubles as page 2 of the print layout.
+Each route gets a read-only **Overview** page (from the editor's route menu and the library card menu): a large static route map — real OSM raster tiles behind the polyline when online (with attribution), degrading to the plain offline rendering when tiles can't load; library card thumbnails stay tile-free by design (a scrolling library must not fan out tile requests) — plus a design-first stats block (stop count, straight-line distance, an *estimated* walking time at a fixed 12 min/km pace — display-only, clearly labelled an estimate, never written into the GPX), start/end stop names, loop badge, description, and the numbered stop list with coordinates. Below it, the raw GPX text (with copy), which doubles as page 2 of the print layout.
 
 Exports from the overview:
 - **Copy as Markdown** — the overview as portable text with a coordinates table.

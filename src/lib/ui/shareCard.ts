@@ -7,6 +7,25 @@ import { routeDistanceMeters } from '../geo/distance';
 import { formatDistance } from '../geo/format';
 import { estimateWalkMinutes } from '../overview';
 import { stopExportName } from '../gpx/serialize';
+import { computeStaticMapView, osmTileUrl, OSM_TILE_ATTRIBUTION, TILE_SIZE } from '../geo/tiles';
+
+function loadTile(url: string, timeoutMs = 4000): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    // A hung tile request must never hang the export — time out and render plain.
+    const timer = setTimeout(() => reject(new Error('tile timeout')), timeoutMs);
+    img.crossOrigin = 'anonymous'; // keeps the canvas exportable
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(img);
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error('tile failed'));
+    };
+    img.src = url;
+  });
+}
 
 const W = 1080;
 const H = 1350;
@@ -54,15 +73,49 @@ export async function renderShareCard(route: Route): Promise<Blob> {
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   ctx.fillText(subParts.join(' · '), 60, 180);
 
-  // Map panel
+  // Map panel: real OSM tiles when reachable, plain panel otherwise.
   const panel = { x: 60, y: 300, w: W - 120, h: 560 };
   ctx.fillStyle = PANEL_BG;
   roundRect(ctx, panel.x, panel.y, panel.w, panel.h, 24);
   ctx.fill();
-  const pts = fitPointsToBox(route.stops, panel.w, panel.h, 56).map((p) => ({
-    x: p.x + panel.x,
-    y: p.y + panel.y
-  }));
+
+  let pts: Array<{ x: number; y: number }>;
+  let tilesDrawn = false;
+  const view = computeStaticMapView(route.stops, panel.w, panel.h, 56);
+  if (view) {
+    const loaded = await Promise.allSettled(
+      view.tiles.map(async (t) => ({ tile: t, img: await loadTile(osmTileUrl(t.x, t.y, t.z)) }))
+    );
+    const ok = loaded
+      .filter(
+        (r): r is PromiseFulfilledResult<{ tile: (typeof view.tiles)[0]; img: HTMLImageElement }> =>
+          r.status === 'fulfilled'
+      )
+      .map((r) => r.value);
+    if (ok.length > 0) {
+      ctx.save();
+      roundRect(ctx, panel.x, panel.y, panel.w, panel.h, 24);
+      ctx.clip();
+      for (const { tile, img } of ok) {
+        ctx.drawImage(img, panel.x + tile.left, panel.y + tile.top, TILE_SIZE, TILE_SIZE);
+      }
+      ctx.restore();
+      tilesDrawn = true; // any drawn tile means the view projection is on screen
+    }
+    pts = route.stops.map((s) => {
+      const p = view.project(s);
+      return { x: p.x + panel.x, y: p.y + panel.y };
+    });
+  } else {
+    pts = [];
+  }
+  if (!tilesDrawn && route.stops.length > 0) {
+    // Offline/blocked: same projection, plain background (already filled).
+    pts = fitPointsToBox(route.stops, panel.w, panel.h, 56).map((p) => ({
+      x: p.x + panel.x,
+      y: p.y + panel.y
+    }));
+  }
   if (pts.length >= 2) {
     ctx.strokeStyle = TEAL;
     ctx.lineWidth = 8;
@@ -119,7 +172,14 @@ export async function renderShareCard(route: Route): Promise<Blob> {
   // Footer
   ctx.fillStyle = DIM;
   ctx.font = '400 30px system-ui, sans-serif';
+  ctx.textAlign = 'left';
   ctx.fillText('Made with WayPoint', 60, H - 60);
+  if (tilesDrawn) {
+    ctx.textAlign = 'right';
+    ctx.font = '400 22px system-ui, sans-serif';
+    ctx.fillText(`Map data ${OSM_TILE_ATTRIBUTION}`, W - 60, H - 60);
+    ctx.textAlign = 'left';
+  }
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas export failed'))), 'image/png');
